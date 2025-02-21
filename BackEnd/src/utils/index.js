@@ -16,7 +16,7 @@ dotenv.config();  // Load environment variables from .env file
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors({
-    origin: ['http://localhost:5173', 'https://flowmen-ita.vercel.app'], // Allow frontend origin
+    origin: ['http://localhost:5173', 'https://flowmen-common.vercel.app'], // Allow frontend origin
     methods: 'GET,POST,PUT,DELETE',
     allowedHeaders: 'Content-Type,Authorization'
 }));
