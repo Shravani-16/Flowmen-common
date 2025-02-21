@@ -43,7 +43,7 @@ function Login() {
         setHidePass(!hidePass);
     };
 
-    //<--------Tost Timmer
+    //<--------Tost Timmer section 
     useEffect(() => {
         const interval = setInterval(() => {
             setToast(false);
