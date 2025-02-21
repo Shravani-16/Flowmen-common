@@ -26,7 +26,7 @@ const EmailBox = styled(Box)`
 `;
 
 function Login() {
-    const URL = "https://flowmen-common.onrender.com:3000";
+    const URL = "https://flowmen-common.onrender.com";
     // const URL = "http://localhost:3000";
     const [activeBox, setActiveBox] = useState(null);
     const [hidePass, setHidePass] = useState(true);
