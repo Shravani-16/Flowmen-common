@@ -1,8 +1,8 @@
+const fetch = require('node-fetch');
 
-// const url = "https://dev.api.golain.io/e8ab8d81-a0d6-46f6-87f1-e5ec6c9d763e/wke/get_device-data/feat001/data/";
-const url="https://dev.api.golain.io/e8ab8d81-a0d6-46f6-87f1-e5ec6c9d763e/wke/plcData/plc/data/"
+const url = "https://dev.api.golain.io/e8ab8d81-a0d6-46f6-87f1-e5ec6c9d763e/wke/plcData/plc/data/";
+
 const deviceData = async () => {
-    
     try {
         const response = await fetch(url, {
             headers: {
@@ -17,4 +17,5 @@ const deviceData = async () => {
         return null;
     }
 };
-export default deviceData
+
+module.exports = deviceData;

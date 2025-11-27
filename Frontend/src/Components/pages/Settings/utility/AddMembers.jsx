@@ -1,4 +1,5 @@
-import { Box, Button, Grid, Typography, styled } from '@mui/material'
+import { Box, Button, Grid, Typography } from '@mui/material'
+import { styled } from '@mui/material/styles'
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { InputField, PasswordInput, checkPassword } from '../../login-reg/Utility';

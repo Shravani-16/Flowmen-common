@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import moment from 'moment';
+/* eslint-disable react/prop-types */
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 import {
   CTable,
@@ -9,7 +9,6 @@ import {
   CTableHeaderCell,
   CTableDataCell,
 } from "@coreui/react";
-import { useSelector } from "react-redux";
 
 const StyledTable = styled(CTable)`
   tbody tr:nth-child(3n + 1) {
@@ -23,190 +22,139 @@ const StyledTable = styled(CTable)`
   }
 `;
 
-const StyledTableCell = styled(CTableDataCell)`
-  color: #000; /* Adjust text color */
-`;
-
-const convertMillisecondsToTime = (milliseconds) => {
-  if (isNaN(milliseconds) || milliseconds < 0) return "00:00:00";
-
-  const totalSeconds = Math.floor(milliseconds / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  const formattedHours = String(hours).padStart(2, '0');
-  const formattedMinutes = String(minutes).padStart(2, '0');
-  const formattedSeconds = String(seconds).padStart(2, '0');
-
-  return `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-};
+// (no longer using the downtime helper in the compact table)
 
 const PlantReport = ({ dates }) => {
-  const userData = useSelector((state) => state.auth.userData);
-  const [reportData, setReportData] = useState([]);
-  
-  const URL = `https://api.golain.io/876dbb57-d0aa-447b-ac43-983b1b1aca19/wke/getplantReport/get_plantReport/?start=${dates?.[0]}&stop=${dates?.[1]}`;
+  // const userData = useSelector((state) => state.auth.userData); // not used in compact table
+  const [reportData, setReportData] = useState(null);
+
+  // Provide sensible default date range: last 30 days if none provided
+  const defaultEnd = new Date();
+  const defaultStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const start = dates?.[0] || defaultStart.toISOString();
+  const stop = dates?.[1] || defaultEnd.toISOString();
 
   useEffect(() => {
+    let mounted = true;
+    // Use local backend endpoint that returns cached plant rows (served by BackEnd/src/routes/reportRoutes.js)
+    const URL = `/reports/plant?start=${encodeURIComponent(start)}&stop=${encodeURIComponent(stop)}`;
     const fetchReportData = async () => {
       try {
-        const response = await fetch(URL, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "APIKEY 68421f9c518fcd554ad4a6397039bacdb82b863dc4c5154b939d50ecbe3cb29b",
-            "org-id": "b7d31442-4487-4138-b69d-1fd97e7a5ae6",
-          },
-        });
-
-        const responseData = (await response.json()).data;
-        setReportData(responseData); // Assuming responseData contains the data in the required format
+        const response = await fetch(URL, { headers: { 'Content-Type': 'application/json' } });
+        const json = await response.json();
+        const responseData = json?.data || [];
+        if (mounted) setReportData(Array.isArray(responseData) ? responseData : []);
       } catch (error) {
-        console.error(error);
+        console.error('PlantReport fetch error', error);
+        if (mounted) setReportData([]);
       }
     };
 
     fetchReportData();
-  }, [dates]);
+    return () => { mounted = false; };
+  }, [start, stop]);
 
   // Function to convert timestamp to DD/MM/YY format
   const formatDate = (timestamp) => {
+    if (!timestamp) return '';
     const date = new Date(timestamp);
+    if (isNaN(date.getTime())) return String(timestamp).split('T')[0];
     const day = String(date.getDate()).padStart(2, "0");
     const month = String(date.getMonth() + 1).padStart(2, "0"); // Months are zero-indexed
     const year = String(date.getFullYear());
     return `${day}/${month}/${year}`;
   };
 
+  // Search and pagination state for the compact table view
+  const [query, setQuery] = useState('');
+  const [page, setPage] = useState(1);
+  const pageSize = 5;
+
+  const normalize = (s) => (s === null || s === undefined ? '' : String(s).toLowerCase());
+
+  // Map incoming reportData rows into the compact table shape
+  const mappedRows = (Array.isArray(reportData) ? reportData : []).map((r) => {
+    // defensive mapping: try several possible field names
+    const crop = r.crop || r.Crop || r.crop_name || r.cropType || r.cropTypeName || r.crop_type || r.name;
+    const farmPlot = r.farmPlot || r.farm_plot || r.plot || r.farm || r.plotName || r.farm_plot_name;
+    const growthStage = r.growthStage || r.stage || r.growth_stage || r.phase;
+    const healthStatus = r.health || r.healthStatus || r.status || r.health_status || r.health_state;
+    const estimatedYield = r.estimatedYield || r.estimated_yield || r.yield || r.estimatedYieldKg || r.estimated_yield_kg || r.estimated_yield_kg_per_ha || r.estimated_yield_kg_ha;
+    const lastScan = r.lastScan || r.timestamp || r.scanDate || r.last_scan;
+    return { crop, farmPlot, growthStage, healthStatus, estimatedYield, lastScan };
+  });
+
+  const filtered = mappedRows.filter((row) => {
+    if (!query) return true;
+    const q = query.toLowerCase();
+    return normalize(row.crop).includes(q) || normalize(row.farmPlot).includes(q) || normalize(row.growthStage).includes(q);
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  // reset page when filter changes
+  useEffect(() => { setPage(1); }, [query, start, stop]);
+
   return (
     <>
-      <p style={{ fontSize: "16px", fontWeight: "700" }}>Daily Summary</p>
-      <CTable bordered borderColor="gray" style={{ textAlign: "center" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div>
+          <p style={{ fontSize: "16px", fontWeight: "700", margin: 0 }}>Daily Summary</p>
+        </div>
+        <div>
+          <input
+            placeholder="Search data..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            style={{ padding: '8px 10px', borderRadius: 6, border: '1px solid #e6e6e6' }}
+          />
+        </div>
+      </div>
+
+      <StyledTable bordered borderColor="gray" style={{ textAlign: "center" }}>
         <CTableHead>
           <CTableRow>
-            <CTableHeaderCell colSpan="3" rowSpan="3" style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-              {userData.companyName}
-            </CTableHeaderCell>
-            <CTableHeaderCell colSpan="6" rowSpan="3" style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-              DAILY PLANT REPORT
-            </CTableHeaderCell>
-            <CTableHeaderCell colSpan="1" rowSpan="1">
-              Doc. No:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="2"></CTableDataCell>
-          </CTableRow>
-          <CTableRow>
-            <CTableHeaderCell colSpan="1">Rev. No:</CTableHeaderCell>
-            <CTableDataCell colSpan="2"></CTableDataCell>
-          </CTableRow>
-          <CTableRow>
-            <CTableHeaderCell colSpan="1">Rev. Date:</CTableHeaderCell>
-            <CTableDataCell colSpan="2"></CTableDataCell>
-          </CTableRow>
-          <CTableRow style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-            <CTableHeaderCell colSpan="2"></CTableHeaderCell>
-            <CTableHeaderCell colSpan="1">Date: </CTableHeaderCell>
-            <CTableHeaderCell colSpan="3">
-              {dates[0] ? moment(dates[0]).format('DD-MM-YYYY') : ''} to {dates[1] ? moment(dates[1]).format('DD-MM-YYYY') : ''}
-            </CTableHeaderCell>
-            <CTableHeaderCell>Shift:</CTableHeaderCell>
-            <CTableHeaderCell colSpan="2"></CTableHeaderCell>
-            <CTableHeaderCell>Operator:</CTableHeaderCell>
-            <CTableHeaderCell colSpan="2"></CTableHeaderCell>
-          </CTableRow>
-          <CTableRow style={{ textAlign: "center", verticalAlign: "middle" }}>
-            <CTableHeaderCell scope="col">Sr.No.</CTableHeaderCell>
-            <CTableHeaderCell scope="col">Date</CTableHeaderCell>
-            <CTableHeaderCell scope="col">Good</CTableHeaderCell>
-            <CTableHeaderCell scope="col">Reject</CTableHeaderCell>
-            <CTableHeaderCell scope="col">Runner Weight(kg)</CTableHeaderCell>
-            <CTableHeaderCell scope="col">Energy(kWh)</CTableHeaderCell>
-            <CTableHeaderCell scope="col">
-              Energy per good production(kWh)
-            </CTableHeaderCell>
-            <CTableHeaderCell scope="col">AVAILABILITY(%)</CTableHeaderCell>
-            <CTableHeaderCell scope="col">PERFORMANCE(%)</CTableHeaderCell>
-            <CTableHeaderCell scope="col">QUALITY(%)</CTableHeaderCell>
-            <CTableHeaderCell scope="col">OEE(%)</CTableHeaderCell>
-            <CTableHeaderCell scope="col">Downtime Time <br /> (Start To End)</CTableHeaderCell>
+            <CTableHeaderCell scope="col" style={{ textAlign: 'left' }}>Crop</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Farm Plot</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Growth Stage</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Health Status</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Estimated Yield (kg/ha)</CTableHeaderCell>
+            <CTableHeaderCell scope="col">Last Scan</CTableHeaderCell>
           </CTableRow>
         </CTableHead>
         <CTableBody>
-          {reportData ? (
-            reportData.map((data, index) => (
-              <CTableRow
-                key={index}
-                color={
-                  index % 3 === 0
-                    ? "info"
-                    : index % 3 === 1
-                    ? "warning"
-                    : "danger"
-                }
-              >
-                <CTableDataCell>{index + 1}</CTableDataCell>
-                <CTableDataCell>{formatDate(data.timestamp)}</CTableDataCell>
-                <CTableDataCell>{data.good}</CTableDataCell>
-                <CTableDataCell>{data.rejected}</CTableDataCell>
-                <CTableDataCell>{data.weight}</CTableDataCell>
-                <CTableDataCell>{data.energy1}</CTableDataCell>
-                <CTableDataCell>{data.energy2}</CTableDataCell>
-                <CTableDataCell>{data.availability}</CTableDataCell>
-                <CTableDataCell>{data.performance}</CTableDataCell>
-                <CTableDataCell>{data.quality}</CTableDataCell>
-                <CTableDataCell>{data.oee}</CTableDataCell>
-                <CTableDataCell>{convertMillisecondsToTime(data.downtime)}</CTableDataCell>
+          {pageRows.length > 0 ? (
+            pageRows.map((data, index) => (
+              <CTableRow key={index}>
+                <CTableDataCell style={{ textAlign: 'left' }}>{data.crop || '-'}</CTableDataCell>
+                <CTableDataCell>{data.farmPlot || '-'}</CTableDataCell>
+                <CTableDataCell>{data.growthStage || '-'}</CTableDataCell>
+                <CTableDataCell>
+                  {data.healthStatus ? (
+                    <span style={{ padding: '6px 10px', borderRadius: 16, background: /healthy/i.test(String(data.healthStatus)) ? '#c8e6c9' : '#ffcdd2', color: /healthy/i.test(String(data.healthStatus)) ? '#1b5e20' : '#c62828', fontWeight: 700 }}>{data.healthStatus}</span>
+                  ) : (
+                    <span style={{ color: '#666' }}>-</span>
+                  )}
+                </CTableDataCell>
+                <CTableDataCell>{data.estimatedYield ? Number(data.estimatedYield).toLocaleString() : '-'}</CTableDataCell>
+                <CTableDataCell>{formatDate(data.lastScan)}</CTableDataCell>
               </CTableRow>
             ))
           ) : (
             <CTableRow>
-              <CTableDataCell colSpan="12">
-                No Dates Selected/No Data in Selected Dates
-              </CTableDataCell>
+              <CTableDataCell colSpan="6">No Dates Selected/No Data in Selected Dates</CTableDataCell>
             </CTableRow>
           )}
-          <CTableRow>
-            <CTableHeaderCell colSpan="2" style={{ textAlign: "right" }}>
-              Total:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-          </CTableRow>
-          <CTableRow>
-            <CTableHeaderCell colSpan="2" rowSpan="1" style={{ textAlign: "right", verticalAlign: "middle" }}>
-              Operator Sign:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="3"></CTableDataCell>
-            <CTableHeaderCell colSpan="2" rowSpan="1" style={{ textAlign: "right", verticalAlign: "middle" }}>
-              Machine Start Counter:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-            <CTableHeaderCell colSpan="2" rowSpan="2" style={{ textAlign: "center", verticalAlign: "middle" }}>
-              Operation Incharge Sign:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="2" rowSpan="2"></CTableDataCell>
-          </CTableRow>
-          <CTableRow>
-            <CTableHeaderCell colSpan="2" rowSpan="1" style={{ textAlign: "right", verticalAlign: "middle" }}>
-              Production Supervisor Sign:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="3"></CTableDataCell>
-            <CTableHeaderCell colSpan="2" rowSpan="1" style={{ textAlign: "right", verticalAlign: "middle" }}>
-              Machine Start Counter:
-            </CTableHeaderCell>
-            <CTableDataCell colSpan="1"></CTableDataCell>
-          </CTableRow>
         </CTableBody>
-      </CTable>
+      </StyledTable>
+
+      {/* Pagination controls (simple) */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 12, gap: 12 }}>
+        <button disabled={page <= 1} onClick={() => setPage(p => Math.max(1, p - 1))} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #c8e6c9', background: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }}>Previous</button>
+        <div style={{ color: '#2e7d32', fontWeight: 600 }}>{page} / {totalPages}</div>
+        <button disabled={page >= totalPages} onClick={() => setPage(p => Math.min(totalPages, p + 1))} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #c8e6c9', background: '#e8f5e9', color: '#2e7d32', fontWeight: 600 }}>Next</button>
+      </div>
     </>
   );
 };

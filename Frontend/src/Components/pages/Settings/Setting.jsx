@@ -1,5 +1,6 @@
 import React, { useState} from 'react';
-import { Box,Typography, styled } from '@mui/material';
+import { Box,Typography } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import { useLocation } from 'react-router-dom';
 import { AddMembers, Members, UserDetails } from './utility';
 

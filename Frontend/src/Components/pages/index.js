@@ -4,11 +4,12 @@ import Mould from './Mould';
 import Config from './Config';
 import Performance from './Performance';
 import Report from './Reports/Report'
-import Dashboard from './DashBoard/Dashboard'; 
+import Dashboard from './DashBoard/Dashboard';
 import Login from './login-reg/Login';
-import RegisterCom from './Register/RegisterCom' 
+import RegisterCom from './Register/RegisterCom'
 import TAC from './TAC'
 import EnergyMeter from './DashBoard/utility/EnergyMeter';
+import SoilDashboard from './SoilDashboard/SoilDashboard';
 export {
   Analytics,
   Console,
@@ -21,4 +22,5 @@ export {
   RegisterCom,
   TAC,
   EnergyMeter
+  , SoilDashboard
 };

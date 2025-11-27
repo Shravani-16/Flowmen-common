@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import moment from 'moment';
-import { Box, styled } from '@mui/material'
+import { Box } from '@mui/material'
+import { styled } from '@mui/material/styles'
 import { useSelector } from "react-redux";
 import {
   CTable,

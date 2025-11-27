@@ -1,38 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
-import { Box, Grid, Select, MenuItem, FormControl, InputLabel, Typography } from "@mui/material";
-import Linechart from "../containts/Charts/LineChart";
+import React, { useState, useEffect } from "react";
+import { Box } from "@mui/material";
 import Navbar from "../../Navbar/Navbar";
 import styled from "styled-components";
-import {
-  ProVolume,
-  TPReport,
-  CycTime,
-  DownTime,
-  PreChart,
-  MacInPro,
-  EnergyMeter,
-} from "../containts";
-import lineData from "../api/lineData";
-import { useSelector } from "react-redux";
-import { getDeviceData, getDeviceID } from "../api";
-import { fetchData } from "../../api/fetchData";
-
-const Component = styled(Box)`
-  justify-content: center;
-  height: auto;
-  margin-bottom: 2% !important;
-`;
-
-const BComponent = styled(Box)`
-  justify-content: center;
-  height: auto;
-  margin-bottom: 2% !important;
-`;
-
-const Progress = styled(Box)`
-  height: 81.5vh;
-  margin-top: 2%;
-`;
+import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import axios from 'axios';
 
 const Header = styled(Box)`
   background-color: hsl(0deg 0% 95.29%);
@@ -43,13 +14,13 @@ const Header = styled(Box)`
   height: 70px;
   align-items: center;
   display: flex;
-  justify-content: space-between; // Align items horizontally
+  justify-content: space-between;
 `;
 
 const GridContainer = styled.div`
   padding-top: 1px;
   display: inline-block;
-  height: 100vh;
+  min-height: 100vh;
   justify-content: center;
   width: ${(props) => (props?.isOpen ? "98%" : "98%")};
   position: relative;
@@ -58,292 +29,379 @@ const GridContainer = styled.div`
   }
 `;
 
+function formatDate(d) {
+  const dt = new Date(d);
+  return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const downloadCSV = (rows, filename = 'soil-data.csv') => {
+  if (!rows || rows.length === 0) return;
+  const keys = Object.keys(rows[0]);
+  const csv = [keys.join(',')].concat(rows.map(r => keys.map(k => r[k]).join(','))).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+// Individual metric chart component with status indicator
+const MetricChart = ({ data, metricKey, metricLabel, idealValue, unit = '%' }) => {
+  const chartData = data.map(item => ({
+    label: formatDate(item.timestamp),
+    actual: item[metricKey],
+    ideal: idealValue
+  }));
+
+  // Calculate current status
+  const latestValue = data.length > 0 ? data[data.length - 1][metricKey] : 0;
+  const deviation = latestValue - idealValue;
+  const deviationPercent = idealValue > 0 ? ((deviation / idealValue) * 100).toFixed(1) : 0;
+  const status = Math.abs(deviation) < (idealValue * 0.1) ? 'good' : Math.abs(deviation) < (idealValue * 0.2) ? 'warning' : 'critical';
+  const statusColor = status === 'good' ? '#4caf50' : status === 'warning' ? '#ff9800' : '#f44336';
+
+  return (
+    <div style={{
+      background: 'white',
+      borderRadius: 12,
+      padding: 20,
+      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+      minHeight: 280
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>{metricLabel}</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: statusColor
+          }}></div>
+          <span style={{ fontSize: 13, fontWeight: 600, color: statusColor }}>
+            {latestValue?.toFixed(1)}{unit}
+          </span>
+        </div>
+      </div>
+      <div style={{ fontSize: 11, color: '#666', marginBottom: 10 }}>
+        {deviationPercent > 0 ? '+' : ''}{deviationPercent}% from ideal ({idealValue}{unit})
+      </div>
+      <ResponsiveContainer width="100%" height={180}>
+        <LineChart data={chartData}>
+          <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+          <YAxis tick={{ fontSize: 10 }} domain={['auto', 'auto']} />
+          <Tooltip />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          <Line
+            type="monotone"
+            dataKey="actual"
+            name="Actual"
+            stroke="#1976d2"
+            strokeWidth={2}
+            dot={{ r: 3 }}
+          />
+          <Line
+            type="monotone"
+            dataKey="ideal"
+            name="Ideal"
+            stroke="#4caf50"
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            dot={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const Dashboard = ({ isOpen, toggle }) => {
-  const userData = useSelector((state) => state.auth?.userData);
-  const [username, setUsername] = useState("");
+  const [data, setData] = useState([]);
+  const [ideals, setIdeals] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [summaryData, setSummaryData] = useState({
+    overallHealth: 0,
+    avgNutrient: 0,
+    lastUpdate: null,
+    moisture: 0,
+    pH: 0,
+    temp: 0,
+    criticalCount: 0,
+    warningCount: 0,
+    goodCount: 0
+  });
 
   useEffect(() => {
-    if (userData) {
-      setUsername(userData.username);
-    }
-  }, [userData]);
-
-  const [show, setShow] = useState(false);
-  const handleClose = () => setShow(false);
-  const [obj, setObj] = useState("");
-  const [dashboardData, setDashboardData] = useState("");
-  const [EData, setEData] = useState("");
-  const [finaldata, setfinalData] = useState(null);
-  const [noCavity, setNoCavity] = useState(1);
-
-  const [deviceOptions, setDeviceOptions] = useState([]);
-  const [machineOptions, setMachineOptions] = useState([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
-  const [selectedMachineId, setSelectedMachineId] = useState("");
-
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const props = useMemo(()=>[
-    {
-      id: 1,
-      name: "1min",
-      dataKey: "availability",
-      title: "Availability",
-      per: finaldata?.calData?.[0]?.availability || 0,
-    },
-    {
-      id: 2,
-      name: "2min",
-      dataKey: "performance",
-      title: "Performance",
-      per: finaldata?.calData?.[0]?.performance || 0,
-    },
-    {
-      id: 3,
-      name: ["1min", "2min", "3min", "4min", "5min"],
-      dataKey: "quality",
-      title: "Quality",
-      per: finaldata?.calData?.[0]?.quality || 0,
-    },
-    { id: 4, name: "4min", dataKey: "oEE", title: "OEE", per: finaldata?.calData?.[0]?.oee || 0 },
-  ],[finaldata]);
-
-  const DashURL = `https://api.golain.io/876dbb57-d0aa-447b-ac43-983b1b1aca19/wke/getDashboard/data/dashboard/?device_id=${selectedDeviceId}&mac_id=${selectedMachineId}`;
-
-  useEffect(() => {
-    if (!selectedDeviceId || !selectedMachineId) return;
-  
-    const runData = async () => {
-      setLoading(true);
-      setError(null);
+    const fetchData = async () => {
       try {
-        const response = await fetch(DashURL, {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "APIKEY 68421f9c518fcd554ad4a6397039bacdb82b863dc4c5154b939d50ecbe3cb29b",
-            "org-id": "b7d31442-4487-4138-b69d-1fd97e7a5ae6",
-          },
-        });
-  
-        if (!response.ok) throw new Error(`Error: ${response.statusText}`);
-  
-        const responseData = await response.json();
-        if (responseData.data) setfinalData(responseData.data);
-  
-        // Fetch noCavity Data
-        const { noCavity } = await fetchData(
-          "https://api.golain.io/876dbb57-d0aa-447b-ac43-983b1b1aca19/wke/getShiftaata/data/Shift/"
-        );
-        setNoCavity(noCavity);
-  
-        // Fetch other data
-        const [data, eData] = await Promise.all([lineData(), getDeviceData()]);
-        setDashboardData(data);
-        setEData(eData);
-        
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setError(error.message);
+        const res = await axios.get('/soil/data?limit=200');
+        const d = res.data?.data || [];
+        const chartData = d.map(item => ({
+          timestamp: item.timestamp,
+          moisture: item.moisture,
+          pH: item.pH,
+          temp: item.temp,
+          phosphorus: item.phosphorus,
+          sulfur: item.sulfur,
+          zinc: item.zinc,
+          iron: item.iron,
+          manganese: item.manganese,
+          copper: item.copper,
+          potassium: item.potassium,
+          calcium: item.calcium,
+          magnesium: item.magnesium,
+          sodium: item.sodium
+        }));
+        setData(chartData);
+
+        const idealsRes = await axios.get('/soil/ideals');
+        const idealsData = idealsRes.data?.data || {};
+        setIdeals(idealsData);
+
+        // Calculate comprehensive summary stats
+        if (chartData.length > 0) {
+          const latest = chartData[chartData.length - 1];
+          const metrics = ['phosphorus', 'sulfur', 'zinc', 'iron', 'manganese', 'copper', 'potassium', 'calcium', 'magnesium', 'sodium'];
+          const avgNutrient = metrics.reduce((sum, key) => sum + (latest[key] || 0), 0) / metrics.length;
+
+          // Count metrics by status
+          let critical = 0, warning = 0, good = 0;
+          metrics.forEach(key => {
+            const value = latest[key] || 0;
+            const ideal = idealsData[key] || 0;
+            const deviation = Math.abs(value - ideal);
+            if (deviation >= ideal * 0.2) critical++;
+            else if (deviation >= ideal * 0.1) warning++;
+            else good++;
+          });
+
+          setSummaryData({
+            overallHealth: Math.round((latest.moisture / idealsData.moisture) * 100),
+            avgNutrient: Math.round(avgNutrient),
+            lastUpdate: latest.timestamp,
+            moisture: latest.moisture || 0,
+            pH: latest.pH || 0,
+            temp: latest.temp || 0,
+            criticalCount: critical,
+            warningCount: warning,
+            goodCount: good
+          });
+        }
+      } catch (err) {
+        console.error('Soil dashboard fetch error', err?.response || err);
       } finally {
         setLoading(false);
       }
     };
-  
-    const interval = setInterval(runData, 5000);
-    return () => clearInterval(interval);
-  }, [selectedDeviceId, selectedMachineId]);
-  
-
-  useEffect(() => {
-    const fetchOptions = async () => {
-      try {
-        const data = await getDeviceID();
-        console.log("Fetched Data:", data);
-
-        if (Array.isArray(data.device_id) && Array.isArray(data.mac_id)) {
-          const devices = data.device_id.map((item, index) => ({
-            id: item.device_id,
-            name: `Device ${index + 1}`,
-          }));
-          console.log("Device Options:", devices);
-
-          const machines = data.mac_id.map((item, index) => ({
-            id: item.MID,
-            name: `Machine ${index + 1}`,
-          }));
-          console.log("Machine Options:", machines);
-
-          setDeviceOptions(devices);
-          setMachineOptions(machines);
-        } else {
-          console.error("Expected device_id and mac_id to be arrays");
-        }
-      } catch (error) {
-        console.error("Error fetching data:", error);
-      }
-    };
-
-    fetchOptions();
+    fetchData();
   }, []);
 
-  const handleDeviceChange = (event) => {
-    setSelectedDeviceId(event.target.value);
-  };
+  const environmentalMetrics = [
+    { key: 'moisture', label: 'Soil Moisture', unit: '%' },
+    { key: 'pH', label: 'Soil pH', unit: '' },
+    { key: 'temp', label: 'Soil Temperature', unit: '°C' }
+  ];
 
-  const handleMachineChange = (event) => {
-    setSelectedMachineId(event.target.value);
-  };
+  const nutrients = [
+    { key: 'phosphorus', label: 'Phosphorus (P)', unit: '%' },
+    { key: 'sulfur', label: 'Sulfur (S)', unit: '%' },
+    { key: 'zinc', label: 'Zinc (Zn)', unit: '%' },
+    { key: 'iron', label: 'Iron (Fe)', unit: '%' },
+    { key: 'manganese', label: 'Manganese (Mn)', unit: '%' },
+    { key: 'copper', label: 'Copper (Cu)', unit: '%' },
+    { key: 'potassium', label: 'Potassium (K)', unit: '%' },
+    { key: 'calcium', label: 'Calcium (Ca)', unit: '%' },
+    { key: 'magnesium', label: 'Magnesium (Mg)', unit: '%' },
+    { key: 'sodium', label: 'Sodium (Na)', unit: '%' }
+  ];
+
+  if (loading) {
+    return (
+      <GridContainer isOpen={isOpen}>
+        <Header isOpen={isOpen}>
+          <Navbar />
+        </Header>
+        <div style={{ padding: 40, textAlign: 'center', marginTop: 80 }}>Loading soil data...</div>
+      </GridContainer>
+    );
+  }
 
   return (
     <GridContainer isOpen={isOpen}>
       <Header isOpen={isOpen}>
         <Navbar />
-        <Box sx={{ display: "flex", gap: 2, alignItems: "center", marginRight: "20px" }}>
-          <FormControl fullWidth size="small" sx={{ minWidth: "150px" }}>
-            <InputLabel>Select Device</InputLabel>
-            <Select
-              value={selectedDeviceId}
-              onChange={handleDeviceChange}
-              label="Select Device"
-            >
-              {deviceOptions.length > 0 ? (
-                deviceOptions.map((device) => (
-                  <MenuItem key={device.id} value={device.id}>
-                    {device.name}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem disabled>No devices available</MenuItem>
-              )}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth size="small" sx={{ minWidth: "150px" }}>
-            <InputLabel>Select Machine</InputLabel>
-            <Select
-              value={selectedMachineId}
-              onChange={handleMachineChange}
-              label="Select Machine"
-            >
-              {machineOptions.length > 0 ? (
-                machineOptions.map((machine) => (
-                  <MenuItem key={machine.id} value={machine.id}>
-                    {machine.name}
-                  </MenuItem>
-                ))
-              ) : (
-                <MenuItem disabled>No machines available</MenuItem>
-              )}
-            </Select>
-          </FormControl>
-        </Box>
       </Header>
 
-      <Component>
-        {loading && <Typography>Loading dashboard data...</Typography>}
-        {error && <Typography color="error">{error}</Typography>}
-
-        <PreChart
-          show={show}
-          handleClose={handleClose}
-          obj={obj}
-          data={dashboardData}
-          finaldata={finaldata}
-        />
-
-        <Grid
-          container
-          columnSpacing={1}
-          style={{
-            width: "100%",
-            marginBottom: "1%",
-            marginLeft: "1%",
-            marginTop: isOpen ? "5%" : "4%",
-          }}
-        >
-          <Grid item xs={12} md={12} lg={8} sx={{ marginTop: "0.5%" }}>
-            <div style={{ display: "block", width: "99%" }}>
-              <Grid container spacing={1.5} sx={{ padding: "2% 0% 0% 1%" }}>
-                {props.map((item) => (
-                  <Grid key={item.id} item xs={12} sm={12} md={6} lg={6}>
-                    <Linechart
-                      data={dashboardData}
-                      dataKey={item.dataKey}
-                      name={item.name}
-                      title={item.title}
-                      per={item.per}
-                      setObj={setObj}
-                      setShow={setShow}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+      <div style={{
+        padding: 24,
+        background: 'white',
+        minHeight: '100vh',
+        marginTop: 70,
+        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      }}>
+        {/* Summary Overview */}
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Summary Overview</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Soil Health Score</div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#1976d2' }}>
+                {summaryData.overallHealth}%
+              </div>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>Based on moisture levels</div>
             </div>
-            <Box sx={{ width: "99%", padding: "0% 0% 0% 1%" }}>
-              <TPReport data={finaldata} noCavity={noCavity} />
-              <CycTime data={finaldata} />
-            </Box>
-          </Grid>
-          <Grid item md={10} lg={4}>
-            <Progress>
-              <Grid
-                item
-                xs={12}
-                sx={{ marginTop: "5.5%", padding: "0px 5px 0px 0px" }}
-              >
-                <ProVolume
-                  isOpen={isOpen}
-                  title="Production Volume"
-                  subTitles={[
-                    { name: "Good Production" },
-                    { name: "Scrap Production" },
-                    { name: "NCR" },
-                  ]}
-                  para={573}
-                  pcs="17Pcs"
-                  isvisi={true}
-                  data={finaldata}
-                />
-              </Grid>
-              <Grid
-                item
-                xs={12}
-                sx={{ marginTop: "3%", padding: "0px 5px 0px 0px" }}
-              >
-                <MacInPro
-                  isOpen={isOpen}
-                  title="Machines In Production"
-                  subTitles={[
-                    { name: "Production" },
-                    { name: "Setup" },
-                    { name: "No Activity" },
-                  ]}
-                  para="47/64"
-                  data={finaldata }
-                />
-              </Grid>
-              <Grid
-                item
-                xs={12}
-                sx={{ marginTop: "3%", padding: "0px 6px 0px 0px" }}
-              >
-                <DownTime data={finaldata} />
-              </Grid>
-            </Progress>
-          </Grid>
-        </Grid>
-      </Component>
-      <BComponent
-        sx={{
-          marginBottom: "2%",
-          marginTop: "-1.2%",
-          padding: "0px 0px 7px 30px",
-          width: "100%",
-        }}
-      >
-        <EnergyMeter data={finaldata?.meterData?.[0]} />
-      </BComponent>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Avg Nutrient Level</div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#4caf50' }}>
+                {summaryData.avgNutrient}%
+              </div>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>All nutrients combined</div>
+            </div>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Soil Moisture</div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#2196f3' }}>
+                {summaryData.moisture?.toFixed(1)}%
+              </div>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>Current soil moisture</div>
+            </div>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Soil pH Level</div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#9c27b0' }}>
+                {summaryData.pH?.toFixed(1)}
+              </div>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>Acidity/alkalinity</div>
+            </div>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Soil Temperature</div>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#ff5722' }}>
+                {summaryData.temp?.toFixed(1)}°C
+              </div>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>Current soil temp</div>
+            </div>
+            <div style={{
+              background: 'white',
+              padding: 20,
+              borderRadius: 12,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ fontSize: 13, color: '#666', marginBottom: 4 }}>Status Overview</div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#4caf50' }}>{summaryData.goodCount}</div>
+                  <div style={{ fontSize: 10, color: '#999' }}>Good</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#ff9800' }}>{summaryData.warningCount}</div>
+                  <div style={{ fontSize: 10, color: '#999' }}>Warning</div>
+                </div>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: '#f44336' }}>{summaryData.criticalCount}</div>
+                  <div style={{ fontSize: 10, color: '#999' }}>Critical</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Environmental Conditions */}
+        <div style={{ marginBottom: 24 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Environmental Conditions</h2>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 20
+          }}>
+            {environmentalMetrics.map(metric => (
+              <MetricChart
+                key={metric.key}
+                data={data}
+                metricKey={metric.key}
+                metricLabel={metric.label}
+                idealValue={ideals[metric.key]}
+                unit={metric.unit}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Nutrient Performance Grid */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Nutrient Performance Analysis</h2>
+            <button
+              onClick={() => downloadCSV(data.map(d => ({
+                timestamp: new Date(d.timestamp).toISOString(),
+                moisture: d.moisture,
+                pH: d.pH,
+                temp: d.temp,
+                phosphorus: d.phosphorus,
+                sulfur: d.sulfur,
+                zinc: d.zinc,
+                iron: d.iron,
+                manganese: d.manganese,
+                copper: d.copper,
+                potassium: d.potassium,
+                calcium: d.calcium,
+                magnesium: d.magnesium,
+                sodium: d.sodium
+              })), 'soil-readings.csv')}
+              style={{
+                padding: '8px 16px',
+                background: '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 13
+              }}
+            >
+              Download CSV Report
+            </button>
+          </div>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: 20
+          }}>
+            {nutrients.map(metric => (
+              <MetricChart
+                key={metric.key}
+                data={data}
+                metricKey={metric.key}
+                metricLabel={metric.label}
+                idealValue={ideals[metric.key]}
+                unit={metric.unit}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     </GridContainer>
   );
 };

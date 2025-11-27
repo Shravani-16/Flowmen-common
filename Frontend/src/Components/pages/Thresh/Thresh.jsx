@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import {
   Box,
   Typography,
-  styled,
 } from "@mui/material";
+import { styled } from "@mui/material/styles";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import SetThresh from "./utility/SetThresh";

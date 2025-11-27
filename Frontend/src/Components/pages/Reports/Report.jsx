@@ -14,12 +14,12 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import Datepicker from "../../DateTimePicker/DatePicker";
 import { Container, OverlayTrigger, Tooltip } from "react-bootstrap";
 import { useReactToPrint } from "react-to-print";
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import styled from "styled-components";
 import { useSelector } from "react-redux";
-import {PlantReport,ProductionReport,DowntimeRepo,QualityReport,EnergyReport} from "./utility";
+import { SoilTableView } from "./utility";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
-import MachineReport from "./utility/MachineReport";
 
 // Styled components for consistent layout
 const CenteredContainer = styled.div`
@@ -69,7 +69,7 @@ const ButtonContainer = styled.div`
 
 // Component to render report content based on selected report type
 const ReportContent = forwardRef(
-  ({ dates, plantR, ProR, DownR, QualR, EnergyR, MachineR }, ref) => {
+  ({ dates, TableR }, ref) => {
     // Helper function to format date
     const formatDate = (timestamp) => {
       const date = new Date(timestamp);
@@ -81,21 +81,7 @@ const ReportContent = forwardRef(
 
     return (
       <div ref={ref} style={{ paddingTop: "2%", width: "100%" }}>
-        {plantR ? (
-          <PlantReport dates={dates} />
-        ) : ProR ? (
-          <ProductionReport dates={dates} />
-        ) : DownR ? (
-          <DowntimeRepo dates={dates} />
-        ) : QualR ? (
-          <QualityReport dates={dates} />
-        ) : EnergyR ? (
-          <EnergyReport dates={dates} />
-        ): MachineR ? (
-          <MachineReport dates={dates}/>
-        ):(
-          <>Working On Reports</>
-        )}
+        <SoilTableView dates={dates} />
       </div>
     );
   }
@@ -104,15 +90,8 @@ const ReportContent = forwardRef(
 // Main Report component
 const Report = ({ isOpen, toggle }) => {
   // State variables to manage report types and data
-  const [plantR, setPlantR] = useState(true);
-  const [ProR, setProR] = useState(false);
-  const [DownR, setDownR] = useState(false);
-  // const [QualR, setQualR] = useState(false);
-  const [EnergyR, setEnergyR] = useState(false);
-  // const [MachineR, setMachineR] = useState(false);
-  // const [TotalR, setTotalR] = useState(false);
-  // const [ShiftR, setShiftR] = useState(false);
-  const [activeButton, setActiveButton] = useState("plant");
+  const [TableR, setTableR] = useState(true);
+  const [activeButton, setActiveButton] = useState("table");
   const componentPDF = useRef();
   const tableRef = useRef();
   const dates = useSelector((state) => state.datePicker.dates);
@@ -123,7 +102,7 @@ const Report = ({ isOpen, toggle }) => {
   // Hook to handle PDF generation
   const generatePDF = useReactToPrint({
     content: () => componentPDF.current,
-    documentTitle: "Plant Report",
+    documentTitle: "Table Report",
     onAfterPrint: () => toast.success("PDF downloaded successfully"),
   });
 
@@ -155,77 +134,45 @@ const Report = ({ isOpen, toggle }) => {
     toast.success("CSV downloaded successfully");
   };
   // Function to extract table data and download as Excel
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     const table = tableRef.current;
-    const ws = XLSX.utils.table_to_sheet(table);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report Data");
+    if (!table) return;
 
-    //Generate the excel file and trigger download
-    XLSX.writeFile(wb, "report_data.xlsx");
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Report Data");
+
+    const rows = table.querySelectorAll("tr");
+    rows.forEach((row, rowIndex) => {
+      const cells = row.querySelectorAll("th, td");
+      const rowData = Array.from(cells).map((cell) => cell.innerText);
+      if (rowIndex === 0) {
+        worksheet.addRow(rowData).font = { bold: true };
+      } else {
+        worksheet.addRow(rowData);
+      }
+    });
+
+    worksheet.columns.forEach((col) => {
+      let maxLength = 10;
+      col.eachCell({ includeEmpty: true }, (cell) => {
+        const v = cell.value ? String(cell.value) : "";
+        maxLength = Math.max(maxLength, v.length + 2);
+      });
+      col.width = Math.min(maxLength, 60);
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    saveAs(blob, "report_data.xlsx");
 
     toast.success("Data downloaded succesfully");
   };
 
-  // Handlers for different report buttons
-  const productionHandler = () => {
-    setPlantR(false);
-    setDownR(false);
-    // setQualR(false);
-    setEnergyR(false)
-    // setMachineR(false)
-    // setTotalR(false)
-    // setShiftR(false)
-    setProR(true);
-    setActiveButton("production");
-  };
-
-  const plantHandler = () => {
-    setProR(false);
-    setDownR(false);
-    // setQualR(false);
-    setEnergyR(false)
-    // setMachineR(false);
-    // setTotalR(false);
-    // setShiftR(false);
-    setPlantR(true);
-    setActiveButton("plant");
-  };
-
-  const downtimeHandler = () => {
-    setProR(false);
-    setPlantR(false);
-    // setQualR(false);
-    setEnergyR(false);
-    // setMachineR(false);
-    // setTotalR(false);
-    // setShiftR(false);
-    setDownR(true);
-    setActiveButton("downtime");
-  };
-
-  // const qualityHandler = () => {
-  //   setProR(false);
-  //   setPlantR(false);
-  //   setDownR(false);
-  //   setEnergyR(false)
-  //   setMachineR(false);
-  //   setTotalR(false)
-  //   setShiftR(false)
-    // setQualR(true);
-  //   setActiveButton("quality");
-  // };
-
-  const energyHandler = () => {
-    setProR(false);
-    setPlantR(false);
-    setDownR(false);
-    setEnergyR(true)
-    // setMachineR(false);
-    // setQualR(false);
-    // setShiftR(false);
-    // setTotalR(false);
-    setActiveButton("energy");
+  const tableHandler = () => {
+    setTableR(true);
+    setActiveButton("table");
   };
   // const machineHandler = () => {
   //   setProR(false);
@@ -390,63 +337,12 @@ const Report = ({ isOpen, toggle }) => {
           <ButtonContainer>
             {/* Buttons to switch between different reports */}
             <Button
-              className={activeButton === "plant" ? "active" : ""}
-              onClick={plantHandler}
+              className={activeButton === "table" ? "active" : ""}
+              onClick={tableHandler}
               sx={{ color: "#0f2765", fontWeight: "600",borderRight: "2px dotted #0f2765", fontSize:'14px' }}
             >
-              Plant 
+              Table View
             </Button>
-            <Button
-              className={activeButton === "production" ? "active" : ""}
-              onClick={productionHandler}
-              sx={{ color: "#0f2765", fontWeight: "900",borderRight: "2px dotted #0f2765" ,fontSize:'14px',padding: '0px 20px !important' }}
-            >
-              Production
-            </Button>
-            {/* <Button
-              className={activeButton === "downtime" ? "active" : ""}
-              onClick={downtimeHandler}
-              sx={{ color: "#0f2765", fontWeight: "900",borderRight: "2px dotted #0f2765",fontSize:'14px'  }}
-            >
-              Downtime
-            </Button> */}
-            {/* <Button
-              className={activeButton === "quality" ? "active" : ""}
-              onClick={qualityHandler}
-              sx={{ color: "#0f2765", fontWeight: "600",borderRight: "2px dotted #0f2765",fontSize:'14px'  }}
-            >
-              Quality 
-            </Button> */}
-            {/*  New Reports From Here */}
-            <Button
-              className={activeButton === "energy" ? "active" : ""}
-              onClick={energyHandler}
-              sx={{ color: "#0f2765", fontWeight: "600",fontSize:'14px' }}
-              // sx={{ color: "#0f2765", fontWeight: "600",borderRight: "2px dotted #0f2765" ,fontSize:'14px' }}
-            >
-              Energy 
-            </Button>
-            {/* <Button
-              className={activeButton === "machine" ? "active" : ""}
-              onClick={machineHandler}
-              sx={{ color: "#0f2765", fontWeight: "600",borderRight: "2px dotted #0f2765" ,fontSize:'14px' }}
-            >
-              Machine
-            </Button> */}
-            {/* <Button
-              className={activeButton === "total" ? "active" : ""}
-              onClick={totalHandler}
-              sx={{ color: "#0f2765", fontWeight: "600",borderRight: "2px dotted #0f2765" ,fontSize:'13px',padding: '0px 21px !important'  }}
-            >
-              Production Volume
-            </Button> */}
-            {/* <Button
-              className={activeButton === "shift" ? "active" : ""}
-              onClick={shiftHandler}
-              sx={{ color: "#0f2765", fontWeight: "600" ,fontSize:'14px'}}
-            >
-              Shift 
-            </Button> */}
           </ButtonContainer>
         </CenteredContainer>
 
@@ -455,12 +351,7 @@ const Report = ({ isOpen, toggle }) => {
           <ReportContent
             ref={componentPDF}
             dates={dates}
-            plantR={plantR}
-            ProR={ProR}
-            DownR={DownR}
-            // QualR={QualR}
-            EnergyR={EnergyR}
-            // MachineR={MachineR}
+            TableR={TableR}
             // TotalR={TotalR}
             // ShiftR={ShiftR}
           />

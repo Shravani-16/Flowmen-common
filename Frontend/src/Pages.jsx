@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, styled } from '@mui/material';
+import { Box } from '@mui/material';
+import { styled } from '@mui/material/styles';
 import Sidebar from './Components/Navbar/SideBar';
 import Home from './Components/home/Home';
 import { Outlet } from 'react-router-dom';
@@ -17,18 +18,18 @@ const PComponent = styled(Box)`
     width: 12px;
   }
 
-  &::-webkit-scrollbar-track {
-    background: #f1f1f1;
+  body::-webkit-scrollbar-track {
+    background: #e8f5e8;
   }
 
-  &::-webkit-scrollbar-thumb {
-    background-color: #888;
+  body::-webkit-scrollbar-thumb {
+    background-color: #66bb6a;
     border-radius: 10px;
-    border: 3px solid #f1f1f1;
+    border: 3px solid #e8f5e8;
   }
 
-  &::-webkit-scrollbar-thumb:hover {
-    background: #555;
+  body::-webkit-scrollbar-thumb:hover {
+    background: #4caf50;
   }
 
   @supports (-ms-overflow-style: none) {

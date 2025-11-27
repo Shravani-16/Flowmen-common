@@ -23,7 +23,15 @@ const Datepicker = () => {
 
     return (
         <div>
-            <RangePicker onChange={handleChange} />
+            <RangePicker 
+                onChange={handleChange}
+                style={{
+                    backgroundColor: 'white',
+                    border: '2px solid #66bb6a',
+                    borderRadius: '8px',
+                }}
+                className="custom-range-picker"
+            />
         </div>
     );
 };

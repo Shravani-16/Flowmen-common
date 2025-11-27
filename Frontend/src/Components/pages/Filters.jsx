@@ -147,7 +147,7 @@ function Filters({ isOpen, toggle }) {
                             )}
                         </Form.Group>
                     ))}
-                    <MuiBtn type="submit" sx={{ marginTop: '20px', backgroundColor: 'hsl(215.84deg 100% 15.1%)', color: '#fff' }}>
+                    <MuiBtn type="submit" sx={{ marginTop: '20px', background: 'linear-gradient(135deg, #66bb6a 0%, #aed581 100%)', color: '#fff', '&:hover': { background: 'linear-gradient(135deg, #4caf50 0%, #9ccc65 100%)' } }}>
                         Submit
                     </MuiBtn>
                 </Form>

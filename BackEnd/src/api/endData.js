@@ -1,18 +1,20 @@
-import axios from 'axios';
-import Calculate, { fetchData } from '../calculations/Calculation.js';
-import postReport from '../Reports/postReport.js';
-import storage from 'node-persist';
-
+const axios = require('axios');
+const Calculate = require('../calculations/Calculation.js');
+const { fetchData } = require('../calculations/Calculation.js');
+const postReport = require('../Reports/postReport.js');
+const storage = require('node-persist');
 
 // Initialize node-persist
-await storage.init({
-    dir: './cache',
-    stringify: JSON.stringify,
-    parse: JSON.parse,
-    encoding: 'utf8',
-    logging: false,
-    ttl: false  // Time to live, set to false for no expiration
-});
+(async () => {
+    await storage.init({
+        dir: './cache',
+        stringify: JSON.stringify,
+        parse: JSON.parse,
+        encoding: 'utf8',
+        logging: false,
+        ttl: false // No expiration
+    });
+})();
 
 // Function to compare only the relevant keys
 const isEqual = (obj1, obj2) => {
@@ -24,16 +26,13 @@ const isEqual = (obj1, obj2) => {
     return keys.every(key => obj1[key] === obj2[key]);
 };
 
-
-
 // Function to post data to the API
 const postAPIData = async () => {
-
     try {
         const previousData = await storage.getItem('previousData');
         const data = await Calculate();
         const PLCData = await fetchData('https://api.golain.io/876dbb57-d0aa-447b-ac43-983b1b1aca19/wke/getPLC/data/PLC/');
-        
+
         if (data && !isEqual(data, previousData)) {
             const url = 'https://api.golain.io/876dbb57-d0aa-447b-ac43-983b1b1aca19/wke/postcalData/data/cal/';
             const headers = {
@@ -50,17 +49,14 @@ const postAPIData = async () => {
         } else {
             console.log('Data is identical to the previous one. Skipping post: End Data');
         }
-        
 
-        
     } catch (error) {
         console.error('An error occurred in postAPIData:', error);
     }
 };
 
 // Function to repeatedly post data
-export const postAllData = () => {
-   
+const postAllData = () => {
     setInterval(postAPIData, 5000);
 };
 
@@ -75,3 +71,4 @@ const postAllReport = () => {
 postAllData();
 postAllReport();
 
+module.exports = { postAllData, postAllReport };

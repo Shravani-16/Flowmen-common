@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { Console, Dashboard, Analytics, Report, Mould, Performance, Config, Login, TAC, RegisterCom } from './Components/pages';
+import { Console, Dashboard, Analytics, Report, Mould, Performance, Config, Login, TAC, RegisterCom, SoilDashboard } from './Components/pages';
+import Register from './Components/pages/login-reg/Register';
 import { useSelector } from 'react-redux';
 import Filters from './Components/pages/Filters';
 import MiniDashboard from './Components/pages/MiniDashboard/MiniDashboard';
@@ -17,7 +18,7 @@ import Supervisor from "./Components/pages/Configuration/Supervisor"
 
 
 function App() {
-  const [isOpen, setIsOpen] = useState((window.innerHeight<=400)? false: true);
+  const [isOpen, setIsOpen] = useState((window.innerHeight <= 400) ? false : true);
   const loginstate = useSelector((state) => state.auth.status);
 
   const toggleSidebar = () => {
@@ -49,6 +50,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Login />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         <Route path="/tac" element={<TAC />} />
         {loginstate && (
           <Route
@@ -86,7 +88,7 @@ function App() {
             />
             <Route
               path="Operator"
-              element={<Operator isOpen={isOpen} toggle={toggleSidebar}/>}
+              element={<Operator isOpen={isOpen} toggle={toggleSidebar} />}
             />
             {/* <Route
               path="Thresh"
@@ -96,26 +98,29 @@ function App() {
             {/* Below route is main configuration route */}
             <Route
               path="supervisor"
-              element={<Supervisor isOpen={isOpen} toggle={toggleSidebar}/>}
+              element={<Supervisor isOpen={isOpen} toggle={toggleSidebar} />}
             />
             <Route
               path="operatorConfig"
-              element={<Operators isOpen={isOpen} toggle={toggleSidebar}/>}
+              element={<Operators isOpen={isOpen} toggle={toggleSidebar} />}
             />
             <Route
               path="qualityc"
-              element={<QualityController isOpen={isOpen} toggle={toggleSidebar}/>}
+              element={<QualityController isOpen={isOpen} toggle={toggleSidebar} />}
             />
 
             <Route path="console" element={<Console />} />
             <Route path="analytics" element={<Analytics />} />
             <Route path="mould" element={<Mould />} />
+            <Route
+              path="soil"
+              element={<SoilDashboard />} />
             <Route path="performance" element={<Performance />} />
           </Route>
         )}
         <Route path="*" element={<PageNotFound />} />
       </Routes>
-     
+
     </BrowserRouter>
   );
 }

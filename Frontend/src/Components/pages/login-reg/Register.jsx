@@ -10,14 +10,18 @@ import { CgPassword } from 'react-icons/cg';
 import { InputField, PasswordInput, checkPassword } from './Utility';
 
 export default function Register() {
-  const URL = "http://localhost:3000";  // The backend URL to send registration data
+  // Use Vite dev proxy (configured in vite.config.js) to reach backend
+  const URL = "";
   const [perfPass, setPerfPass] = useState(false);  // State to check password strength
   const [matchPassword, setMatchPassword] = useState(false);  // State to check if passwords match
   const navigate = useNavigate();  // Hook to navigate to different routes
   const [obj, setObj] = useState({
+    firstname: '',
+    lastname: '',
     username: '',
     email: '',
     role: '',
+    companyName: '',
     teamMembers: [
       { name: '', role: '' }
     ],
@@ -92,7 +96,7 @@ export default function Register() {
 
   // Handle form submission
   const handleOnSubmit = async () => {
-    if (!obj.username || !obj.email || !obj.role || !obj.password || !obj.CPassword) {
+    if (!obj.firstname || !obj.lastname || !obj.username || !obj.email || !obj.role || !obj.password || !obj.CPassword) {
       alert('Please fill in all fields before registering.');
       return;
     }
@@ -102,7 +106,22 @@ export default function Register() {
     }
 
     try {
-      await axios.post(`${URL}/auth/register`, obj, {
+      const teamMembersFiltered = (obj.role === 'Manager' || obj.role === 'Supervisor')
+        ? obj.teamMembers.filter(tm => tm && tm.name && tm.role)
+        : [];
+
+      const payload = {
+        firstname: obj.firstname,
+        lastname: obj.lastname,
+        username: obj.username,
+        email: obj.email,
+        password: obj.password,
+        role: obj.role,
+        companyName: obj.companyName || undefined,
+        ...(teamMembersFiltered.length > 0 ? { teamMembers: teamMembersFiltered } : {})
+      };
+
+      await axios.post(`/auth/register`, payload, {
         headers: {
           'Content-Type': 'application/json'
         }
@@ -110,9 +129,12 @@ export default function Register() {
       console.log('Register Successfully');
       // Reset the form state after successful registration
       setObj({
+        firstname: '',
+        lastname: '',
         username: '',
         email: '',
         role: '',
+        companyName: '',
         teamMembers: [
           { name: '', role: '' }
         ],
@@ -122,8 +144,9 @@ export default function Register() {
       setPerfPass(false);
       navigate('/login');  // Navigate to the login page
     } catch (error) {
+      const msg = error.response?.data?.error || error.response?.data?.message || error.message || 'Registration failed, please try again.';
       console.log('Register Error: ', error.response ? error.response.data : error.message);
-      alert('Registration failed, please try again.');
+      alert(msg);
     }
     console.log(obj);
   };
@@ -149,10 +172,19 @@ export default function Register() {
 
       <Form>
         <Form.Group>
+          <InputField icon={FaUser} type='text' placeholder="Enter first name *" name="firstname" value={obj.firstname} onChange={handleOnChange} />
+        </Form.Group>
+        <Form.Group>
+          <InputField icon={FaUser} type='text' placeholder="Enter last name *" name="lastname" value={obj.lastname} onChange={handleOnChange} />
+        </Form.Group>
+        <Form.Group>
           <InputField icon={FaUser} type='text' placeholder="Enter username *" name="username" value={obj.username} onChange={handleOnChange} />
         </Form.Group>
         <Form.Group>
           <InputField icon={TbMailFilled} type='email' placeholder="Enter Email *" name="email" value={obj.email} onChange={handleOnChange} />
+        </Form.Group>
+        <Form.Group>
+          <InputField icon={FaUser} type='text' placeholder="Company name (optional)" name="companyName" value={obj.companyName} onChange={handleOnChange} />
         </Form.Group>
         <Row style={{ marginBottom: '20px' }}>
           <Form.Group as={Col}>

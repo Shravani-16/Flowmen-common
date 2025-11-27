@@ -15,18 +15,21 @@ import { IoEyeOutline } from "react-icons/io5";
 import { PiEyeClosedBold } from "react-icons/pi";
 
 
-const EmailBox = styled(Box)`
-    display: flex;
-    box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;
-    border-radius: 16px;
-    align-items: center;
-    margin: 34px 11px 5px 7px !important;
-    padding: 0px 1px 0px 11px;
-    outline: ${props => props.active ? '2px solid rgb(163 163 163)' : 'none'};
-`;
+const EmailBox = styled(Box, {
+    shouldForwardProp: (prop) => prop !== 'active',
+})(({ active }) => ({
+    display: 'flex',
+    boxShadow: 'rgba(100, 100, 111, 0.2) 0px 7px 29px 0px',
+    borderRadius: '16px',
+    alignItems: 'center',
+    margin: '34px 11px 5px 7px !important',
+    padding: '0px 1px 0px 11px',
+    outline: active ? '2px solid rgb(163 163 163)' : 'none',
+}));
 
 function Login() {
-    const URL = "https://flowmen-common.onrender.com";
+    // Requests use a relative path; Vite dev proxy will target backend
+    const URL = "";
     // const URL = "http://localhost:3000";
     const [activeBox, setActiveBox] = useState(null);
     const [hidePass, setHidePass] = useState(true);
@@ -80,8 +83,8 @@ function Login() {
         });
 
         setObj({
-            email: cookies.user,
-            password: cookies.pass
+            email: cookies.user || '',
+            password: cookies.pass || ''
         })
     };
 
@@ -105,7 +108,7 @@ function Login() {
     //<-----------Handle Login------------->
     const handleLogin = async () => {
         try {
-            const result = (await axios.post(`${URL}/auth/login`, obj)).data;
+            const result = (await axios.post(`/auth/login`, obj)).data;
             console.log(result.data)
             dispatch(login({ userData: result.data?.user, role: result.data.user?.role }));
             setToast(true)
@@ -116,7 +119,7 @@ function Login() {
             setToast(true);
             setAlert(true);
             setError(true)
-            console.log('Login error: ', error);
+            console.log('Login error: ', error?.response?.data || error);
         }
     };
 

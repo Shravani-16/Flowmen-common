@@ -1,9 +1,9 @@
-import express from 'express'
-import {postData, finalData } from "../controllers/dataController.js";
+const express = require('express');
+const { postData, finalData } = require('../controllers/dataController');
 
 const router = express.Router();
 
-router.post('/postData',postData)
-router.get('/getFinaldata',finalData)
+router.post('/postData', postData);
+router.get('/getFinaldata', finalData);
 
-export default router;
+module.exports = router;

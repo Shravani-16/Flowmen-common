@@ -1,16 +1,25 @@
-const fetchdata = async (URL) => {
+const fetch = require("node-fetch"); // Ensure node-fetch is installed
+const asyncHandler = require("../utils/asyncHandler.js"); // If needed
+
+const fetchData = async (URL) => {
     try {
-        const response = await fetch(URL,  {
+        const response = await fetch(URL, {
             headers: {
                 'Authorization': 'APIKEY 68421f9c518fcd554ad4a6397039bacdb82b863dc4c5154b939d50ecbe3cb29b',
                 'org-id': 'b7d31442-4487-4138-b69d-1fd97e7a5ae6'
             }
         });
+
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status}`);
+        }
+
         const responseData = await response.json();
-        // console.log(responseData.data)
         return responseData.data;
     } catch (error) {
-        console.log("Error Fetching Data");
+        console.error("Error Fetching Data:", error);
+        return null; // Ensure function returns something even on failure
     }
-}
-export default fetchdata;
+};
+
+module.exports = fetchData;

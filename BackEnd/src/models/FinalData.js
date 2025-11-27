@@ -1,72 +1,70 @@
-import mongoose  from "mongoose";
+const mongoose = require("mongoose");
 
 const FinalDataSchema = new mongoose.Schema({
     availability: {
         type: Number,
-        require: true
+        required: true, 
     },
     performance: {
         type: Number,
-        require: true
+        required: true,
     },
     quality: {
         type: Number,
-        require: true
+        required: true,
     },
-    oEE:{
+    oEE: {
         type: Number,
-        require: true
+        required: true,
     },
     productionVolume: {
         type: Number,
-        require: true
+        required: true,
     },
-    machinesInProduction:{
+    machinesInProduction: {
         type: Number,
-        require: true
+        required: true,
     },
     expectedProduction: {
         type: Number,
-        require: true
+        required: true,
     },
-    actualProduction:{
+    actualProduction: {
         type: Number,
-        require: true
+        required: true,
     },
-    goodProduction:{
+    goodProduction: {
         type: Number,
-        require: true
+        required: true,
     },
     rejectedProduction: {
         type: Number,
-        require: true
+        required: true,
     },
-    operatorBreak:{
+    operatorBreak: {
         type: Number,
-        require: true
+        required: true,
     },
-    operatorUnavailable:{
+    operatorUnavailable: {
         type: Number,
-        require: true
+        required: true,
     },
-    materialUnavailable:{
+    materialUnavailable: {
         type: Number,
-        require: true
+        required: true,
     },
-    waitingOnInception:{
+    waitingOnInception: {
         type: Number,
-        require: true
+        required: true,
     },
-    machineIssues:{
+    machineIssues: {
         type: Number,
-        require: true
+        required: true,
     },
-    Downtime:{
+    Downtime: {
         type: Number,
-        require: true
+        required: true,
     },
-})
+});
 
-const FinalData = mongoose.model('FinalData', FinalDataSchema);
-
-export default FinalData;
+module.exports = mongoose.model("FinalData", FinalDataSchema);

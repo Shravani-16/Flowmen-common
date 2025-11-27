@@ -1,37 +1,34 @@
-import FinalData from "../models/FinalData.js";
+const FinalData = require("../models/FinalData.js");
 
-export const postData = async (req, res) => {
-
+exports.postData = async (req, res) => {
     try {
         const data = req.body;
-        if (data) {
-            const newData = new FinalData({
-                ...data
-            })
-            await newData.save();
-            res.status(201).json({ message: 'Data saved Successfully', data })
-        } else {
-            res.status(202).json({ message: 'Please Enter Data' })
+
+        if (!data || Object.keys(data).length === 0) {
+            return res.status(400).json({ message: 'Please Enter Data' });
         }
 
+        const newData = new FinalData({ ...data });
+        await newData.save();
 
+        res.status(201).json({ message: 'Data saved Successfully', data });
     } catch (error) {
-        console.log(error);
-        res.status(500).json({ message: 'Srever Error' })
+        console.error("Error saving data:", error);
+        res.status(500).json({ message: 'Server Error' });
     }
-}
+};
 
-export const finalData = async(req, res)=>{
+exports.finalData = async (req, res) => {
     try {
         const data = await FinalData.findOne().sort({ _id: -1 });
 
-        if(!data){
-           return res.status(404).json({message:'No data Found'})
+        if (!data) {
+            return res.status(404).json({ message: 'No data Found' });
         }
-        return res.status(200).send(data);
 
+        res.status(200).json(data);
     } catch (error) {
-        console.log(error);
-        res.status(500).json({message:'Internal Server Error'})
+        console.error("Error fetching final data:", error);
+        res.status(500).json({ message: 'Internal Server Error' });
     }
-}
+};

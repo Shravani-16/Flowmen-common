@@ -198,7 +198,7 @@ const Home = ({ isOpen }) => {
           >
             {userData.role === "Admin" && (
               <IconButton
-                sx={{ color: "white" }}
+                sx={{ color: "#1b5e20" }}
                 onClick={() =>
                   navigate("setting", { state: { selectedItem: 2 } })
                 }
@@ -206,10 +206,10 @@ const Home = ({ isOpen }) => {
                 <FaUserPlus className="IconSize" />
               </IconButton>
             )}
-            <IconButton sx={{ color: "white" }} onClick={toggleDropDown}>
+            <IconButton sx={{ color: "#1b5e20" }} onClick={toggleDropDown}>
               <FaUser className="IconSize" />
             </IconButton>
-            <IconButton sx={{ color: "white" }} onClick={toggleNotifications}>
+            <IconButton sx={{ color: "#1b5e20" }} onClick={toggleNotifications}>
               <Badge badgeContent={notificationCount} color="error">
                 {showNotifications ? (
                   <NotificationsActiveIcon sx={{ fontSize: 30 }} />

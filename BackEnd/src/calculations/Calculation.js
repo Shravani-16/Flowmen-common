@@ -1,8 +1,8 @@
-import deviceData from "../api/deviceData.js";
+const fetch = require('node-fetch');
 
 const getRandomNumber = (min, max) => Math.floor(Math.random() * (max - min) + min);
 
-export const fetchData = async (url) => {
+const fetchData = async (url) => {
     try {
         console.log(`Fetching data from: ${url}`);
         const response = await fetch(url, {
@@ -18,11 +18,10 @@ export const fetchData = async (url) => {
         }
 
         const responseData = await response.json();
-        // console.log(`Data received from ${url}:`, responseData);
         return responseData?.data?.[0] || {}; // Return empty object instead of null
     } catch (error) {
         console.error("Fetch error:", error.message);
-        return {}; 
+        return {};
     }
 };
 
@@ -44,10 +43,10 @@ const Calculate = async () => {
 
     const operationTime = PLCData.Shift || 1;
     const plannedOperation = userinput.plannedProductionTime || 1;
-    const idealTimeInSeconds = userinput.ideal_cycle_time || 1; 
-    const actualTimeInSeconds = PLCData.CycleT || 1; 
-    const totalPartsProduced = PLCData.Prodcount || 1; 
-    const goodParts = userinput.good_production || 0; 
+    const idealTimeInSeconds = userinput.ideal_cycle_time || 1;
+    const actualTimeInSeconds = PLCData.CycleT || 1;
+    const totalPartsProduced = PLCData.Prodcount || 1;
+    const goodParts = userinput.good_production || 0;
 
     console.log("Calculation Inputs:", { operationTime, plannedOperation, idealTimeInSeconds, actualTimeInSeconds, totalPartsProduced, goodParts });
 
@@ -64,8 +63,8 @@ const Calculate = async () => {
     const macOEE = () => Math.ceil((macAvail() * macPerf() * proQual()) / 10000);
 
     // Energy Calculation
-    const Energy1 = MeterData.kWh / (PLCData.Prodcount || 1); 
-    const Energy2 = MeterData.kWh / (userinput.good_production || 1); 
+    const Energy1 = MeterData.kWh / (PLCData.Prodcount || 1);
+    const Energy2 = MeterData.kWh / (userinput.good_production || 1);
 
     console.log("Calculated Values:", { macAvail: macAvail(), macPerf: macPerf(), proQual: proQual(), macOEE: macOEE(), Energy1, Energy2 });
 
@@ -85,4 +84,4 @@ const Calculate = async () => {
     return data;
 };
 
-export default Calculate;
+module.exports = Calculate;

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Box, InputBase, Typography, styled, alpha } from "@mui/material";
+import { Box, InputBase, Typography } from "@mui/material";
+import { styled, alpha } from "@mui/material/styles";
 import SearchIcon from "@mui/icons-material/Search";
 import { getMembers } from "../api/membersdata";
 import { DataGrid } from "@mui/x-data-grid";
