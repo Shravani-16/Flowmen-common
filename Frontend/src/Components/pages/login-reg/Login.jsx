@@ -108,7 +108,9 @@ function Login() {
     //<-----------Handle Login------------->
     const handleLogin = async () => {
         try {
-            const result = (await axios.post(`/auth/login`, obj)).data;
+            const result = (await axios.post(`/api/v1/auth/login`, obj, {
+                withCredentials: true,
+            })).data;
             console.log(result.data)
             dispatch(login({ userData: result.data?.user, role: result.data.user?.role }));
             setToast(true)

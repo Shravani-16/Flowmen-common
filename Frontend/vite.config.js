@@ -6,12 +6,12 @@ export default defineConfig({
 	plugins: [react()],
 	server: {
 		proxy: {
-			"/auth": {
+			"/api/v1/auth": {
 				target: "http://localhost:4000",
 				changeOrigin: true,
 				secure: false,
 			},
-			"/soil": {
+			"/api/v1/soil": {
 				target: "http://localhost:4000",
 				changeOrigin: true,
 				secure: false,

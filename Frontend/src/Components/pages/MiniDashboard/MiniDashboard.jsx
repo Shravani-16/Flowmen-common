@@ -39,11 +39,37 @@ function MiniDashboard({ isOpen, toggle, isVisi = true }) {
     const fetchData = async () => {
       try {
         const [dataRes, idealsRes] = await Promise.all([
-          axios.get('/soil/data?limit=10'),
-          axios.get('/soil/ideals')
+          axios.get('/api/v1/soil/data', {
+            params: { deviceId: 'demo-device-1' },
+            withCredentials: true,
+          }),
+          axios.get('/api/v1/soil/ideals', {
+            withCredentials: true,
+          })
         ]);
-        setSoilData(dataRes.data.data);
-        setIdeals(idealsRes.data.ideals);
+        setSoilData(dataRes.data.data || dataRes.data?.data || []);
+
+        const rawIdeals = idealsRes.data.data || idealsRes.data?.data || idealsRes.data?.ideals || {};
+        const normalizeIdeal = (field, fallback) => {
+          const v = rawIdeals[field];
+          if (typeof v === 'number') return v;
+          if (v && typeof v === 'object' && v.min != null && v.max != null) {
+            return (Number(v.min) + Number(v.max)) / 2;
+          }
+          return fallback;
+        };
+
+        const idealsData = {
+          moisture: normalizeIdeal('moisture', 50),
+          pH: normalizeIdeal('pH', 6.5),
+          temperature: normalizeIdeal('temperature', 20),
+          phosphorus: normalizeIdeal('phosphorus', 60),
+          potassium: normalizeIdeal('potassium', 60),
+          nitrogen: normalizeIdeal('nitrogen', 60),
+        };
+
+        setIdeals(idealsData);
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching soil data:', error);

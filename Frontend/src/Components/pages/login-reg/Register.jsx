@@ -111,8 +111,7 @@ export default function Register() {
         : [];
 
       const payload = {
-        firstname: obj.firstname,
-        lastname: obj.lastname,
+        fullName: `${obj.firstname} ${obj.lastname}`.trim(),
         username: obj.username,
         email: obj.email,
         password: obj.password,
@@ -121,7 +120,7 @@ export default function Register() {
         ...(teamMembersFiltered.length > 0 ? { teamMembers: teamMembersFiltered } : {})
       };
 
-      await axios.post(`/auth/register`, payload, {
+      await axios.post(`/api/v1/auth/register`, payload, {
         headers: {
           'Content-Type': 'application/json'
         }

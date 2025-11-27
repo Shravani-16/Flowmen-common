@@ -135,8 +135,12 @@ const Dashboard = ({ isOpen, toggle }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const res = await axios.get('/soil/data?limit=200');
+        const res = await axios.get('/api/v1/soil/data', {
+          params: { deviceId: 'demo-device-1' },
+          withCredentials: true,
+        });
         const d = res.data?.data || [];
+
         const chartData = d.map(item => ({
           timestamp: item.timestamp,
           moisture: item.moisture,
@@ -155,8 +159,36 @@ const Dashboard = ({ isOpen, toggle }) => {
         }));
         setData(chartData);
 
-        const idealsRes = await axios.get('/soil/ideals');
-        const idealsData = idealsRes.data?.data || {};
+        const idealsRes = await axios.get('/api/v1/soil/ideals', {
+          withCredentials: true,
+        });
+        const rawIdeals = idealsRes.data?.data || {};
+
+        const normalizeIdeal = (field, fallback) => {
+          const v = rawIdeals[field];
+          if (typeof v === 'number') return v;
+          if (v && typeof v === 'object' && v.min != null && v.max != null) {
+            return (Number(v.min) + Number(v.max)) / 2;
+          }
+          return fallback;
+        };
+
+        const idealsData = {
+          moisture: normalizeIdeal('moisture', 50),
+          pH: normalizeIdeal('pH', 6.5),
+          temp: normalizeIdeal('temperature', 20),
+          phosphorus: normalizeIdeal('phosphorus', 60),
+          sulfur: normalizeIdeal('sulfur', 60),
+          zinc: normalizeIdeal('zinc', 60),
+          iron: normalizeIdeal('iron', 60),
+          manganese: normalizeIdeal('manganese', 60),
+          copper: normalizeIdeal('copper', 60),
+          potassium: normalizeIdeal('potassium', 60),
+          calcium: normalizeIdeal('calcium', 60),
+          magnesium: normalizeIdeal('magnesium', 60),
+          sodium: normalizeIdeal('sodium', 60),
+        };
+
         setIdeals(idealsData);
 
         // Calculate comprehensive summary stats
