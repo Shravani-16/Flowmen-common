@@ -17,13 +17,21 @@ import { useTranslation } from "../../hooks/useTranslation";
 
 const Icons = styled(Grid)`
   display: flex;
-  align-items: right;
-  float: right;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
   margin-left: auto;
+  flex-wrap: nowrap;
 
   @media (max-width: 700px) {
     max-width: 38%;
     height: 32px;
+  }
+
+  @media (max-width: 480px) {
+    position: absolute;
+    right: 8px;
+    top: 8px;
   }
 `;
 
@@ -33,11 +41,13 @@ const Header = styled(Grid)`
   margin-left: auto;
   align-content: center;
   margin-top: 0.3%;
-  z-index: 1;
+  z-index: 2;
+  position: relative;
 
   @media (max-width: 480px) {
     margin-right: 0;
     width: 100% !important;
+    height: 52px;
   }
 `;
 
@@ -215,7 +225,7 @@ const Home = ({ isOpen, isMobile = false, sidebarWidth = 0, toggle }) => {
 
             <div ref={downNote}>
               <IconButton
-                sx={{ color: "#1b5e20" }}
+                sx={{ color: "#1b5e20", p: 0 }}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -224,9 +234,9 @@ const Home = ({ isOpen, isMobile = false, sidebarWidth = 0, toggle }) => {
               >
                 <Badge badgeContent={notifications.length} color="error">
                   {showNotifications ? (
-                    <NotificationsActiveIcon sx={{ fontSize: 30 }} />
+                    <NotificationsActiveIcon sx={{ fontSize: 22 }} />
                   ) : (
-                    <NotificationsIcon sx={{ fontSize: 30 }} />
+                    <NotificationsIcon sx={{ fontSize: 22 }} />
                   )}
                 </Badge>
               </IconButton>
